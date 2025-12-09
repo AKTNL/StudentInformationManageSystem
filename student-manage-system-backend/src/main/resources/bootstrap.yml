@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: student-manage-system-backend
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 8848
