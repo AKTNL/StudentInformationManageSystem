@@ -27,6 +27,9 @@ public class AuthController {
         private String confirmPassword;
         private String captchaKey;
         private String captchaCode;
+
+        private String studentNo;
+        private String realName;
     }
     @PostMapping("/register")
     public Result<String> register(@RequestBody RegisterRequest request){
@@ -49,14 +52,22 @@ public class AuthController {
         // 验证通过，删除缓存
         redisTemplate.delete(key);
 
+        // 校验学号姓名必填
+        if (request.getStudentNo() == null || request.getRealName() == null) {
+            return Result.error("学号和姓名不能为空");
+        }
+
         try{
             User user = new User();
             user.setUsername(request.getUsername());
             user.setPassword(request.getPassword());
-            user.setNickname("用户"+request.getUsername());
-            userService.register(user);
+
+            // 调用 Service，传入学号和姓名
+            userService.register(user, request.getStudentNo(), request.getRealName());
+
             return Result.success("注册成功");
         }catch (Exception e){
+            e.printStackTrace(); // 打印报错方便调试
             return Result.error(e.getMessage());
         }
     }

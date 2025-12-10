@@ -24,7 +24,9 @@ const registerForm = reactive({
   password: '',
   confirmPassword: '', //确认密码
   captchaCode: '',
-  captchaKey: ''
+  captchaKey: '',
+  studentNo: '',
+  realName: ''
 })
 
 // 存验证码图片的 Base64
@@ -80,7 +82,9 @@ const handleLogin = () =>{
 
 const handleRegister = () => {
   //1.基础校验
-  if(!registerForm.username || !registerForm.password || !registerForm.confirmPassword || !registerForm.captchaCode){
+  if(!registerForm.username || !registerForm.password || 
+      !registerForm.confirmPassword || !registerForm.captchaCode ||
+      !registerForm.studentNo || !registerForm.realName){
     ElMessage.warning('请填写完整注册信息')
     return
   }
@@ -96,7 +100,9 @@ const handleRegister = () => {
     username: registerForm.username,
     password: registerForm.password,
     captchaCode: registerForm.captchaCode, //传验证码
-    captchaKey: registerForm.captchaKey //传Key
+    captchaKey: registerForm.captchaKey, //传Key
+    studentNo: registerForm.studentNo,
+    realName: registerForm.realName
   })
   .then(res =>{
     if(res.data.code === 200){
@@ -108,6 +114,8 @@ const handleRegister = () => {
       registerForm.password = ''
       registerForm.confirmPassword = ''
       registerForm.captchaCode = ''
+      registerForm.studentNo = ''
+      registerForm.realName = ''
       // 注册成功后刷新验证码给登录用
       loadCaptcha()
     }else{
@@ -140,7 +148,7 @@ const hasLogo = ref(true)
       </template>
 
       <!--登录表单-->
-      <el-form v-if="!isRegister" label-width ="80px">
+      <el-form v-if="!isRegister" label-width ="80px" @submit.prevent="handleLogin">
         <el-form-item label ="用户名">
           <el-input v-model="loginForm.username" placeholder="请输入用户名" />
         </el-form-item>
@@ -163,7 +171,7 @@ const hasLogo = ref(true)
         </el-form-item>
 
         <el-form-item>
-          <el-button type ="primary" @click="handleLogin" style="width:100%">登录</el-button>
+          <el-button type ="primary" native-type="submit" style="width:100%">登录</el-button>
         </el-form-item>
 
         <!--切换按钮-->
@@ -178,6 +186,15 @@ const hasLogo = ref(true)
         <el-form-item label="用户名">
           <el-input v-model="registerForm.username" placeholder="请输入用户名"/>
         </el-form-item>
+
+        <el-form-item label="学号">
+          <el-input v-model="registerForm.studentNo" placeholder="请输入学号（必填）"/>
+        </el-form-item>
+
+        <el-form-item label="姓名">
+          <el-input v-model="registerForm.realName" placeholder="请输入真实姓名（必填）"/>
+        </el-form-item>
+
         <el-form-item label="密码">
           <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>

@@ -14,7 +14,7 @@ public interface StudentMapper {
     List<Student> findAll();
 
     //新增学生
-    @org.apache.ibatis.annotations.Insert("insert into students(student_no,real_name,gender,class_id,phone,create_time,avatar) values (#{studentNo},#{realName},${gender},#{classId},#{phone},NOW(),#{avatar})")
+    @org.apache.ibatis.annotations.Insert("insert into students(user_id,student_no,real_name,gender,class_id,phone,create_time,avatar) values (#{userId},#{studentNo},#{realName},${gender},#{classId},#{phone},NOW(),#{avatar})")
     void insert(Student student);
 
     @org.apache.ibatis.annotations.Delete("delete from students where id = #{id}")
@@ -30,4 +30,7 @@ public interface StudentMapper {
             "LEFT JOIN users u ON s.user_id = u.user_id " +
             "WHERE s.user_id = #{userId}")
     Student findByUserId(Long userId);
+
+    @Select("select * from students where id = #{id}")
+    Student findById(Long id);
 }

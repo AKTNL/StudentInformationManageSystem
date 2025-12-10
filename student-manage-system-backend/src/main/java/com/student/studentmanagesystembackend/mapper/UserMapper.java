@@ -1,6 +1,7 @@
 package com.student.studentmanagesystembackend.mapper;
 
 import com.student.studentmanagesystembackend.entity.User;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
@@ -14,6 +15,7 @@ public interface UserMapper {
     User findByUsername(String username);
 
     // 插入新用户
+    @org.apache.ibatis.annotations.Options(useGeneratedKeys = true, keyProperty = "userId")
     @Insert("INSERT INTO users(username, password, salt, nickname, role, status, create_time) " +
             "VALUES(#{username}, #{password}, #{salt}, #{nickname}, #{role}, 1, NOW())")
     void insert(User user);
@@ -25,4 +27,7 @@ public interface UserMapper {
     //重置失败次数（登录成功时调用）
     @org.apache.ibatis.annotations.Update("update users set login_fail_count = 0 where user_id = #{userId}")
     void resetLoginFail(Long userId);
+
+    @Delete("delete from users where user_id = #{userId}")
+    void deleteById(Long userId);
 }

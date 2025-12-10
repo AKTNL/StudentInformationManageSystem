@@ -1,11 +1,14 @@
 package com.student.studentmanagesystembackend.service.impl;
 
 import com.student.studentmanagesystembackend.common.SecureUtils;
+import com.student.studentmanagesystembackend.entity.Student;
 import com.student.studentmanagesystembackend.entity.User;
+import com.student.studentmanagesystembackend.mapper.StudentMapper;
 import com.student.studentmanagesystembackend.mapper.UserMapper;
 import com.student.studentmanagesystembackend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -13,8 +16,12 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private StudentMapper studentMapper;
+
     @Override
-    public void register(User user) {
+    @Transactional // 【关键】开启事务：要么都成功，要么都失败
+    public void register(User user, String studentNo, String realName) {
         //1.校验用户名是否已存在
         User existUser = userMapper.findByUsername(user.getUsername());
         if (existUser != null) {
@@ -34,10 +41,20 @@ public class UserServiceImpl implements UserService {
         //默认角色为学生
         if(user.getRole() == null) user.setRole(2);
         //默认昵称
-        if(user.getNickname() == null) user.setNickname("同学_" + salt);
+        if(user.getNickname() == null) user.setNickname(realName); // 昵称默认用真实姓名
 
         //5.存入数据库
         userMapper.insert(user);
+
+        //6.关联学生
+        Student student = new Student();
+        student.setUserId(user.getUserId());
+        student.setStudentNo(studentNo);
+        student.setRealName(realName);
+        student.setGender(1); // 默认男
+        student.setPhone(""); // 暂时留空
+
+        studentMapper.insert(student);
     }
 
     @Override
