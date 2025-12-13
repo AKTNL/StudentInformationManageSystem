@@ -1,5 +1,6 @@
 package com.student.studentmanagesystembackend.controller;
 
+import com.student.studentmanagesystembackend.annotation.AuthCheck;
 import com.student.studentmanagesystembackend.common.Result;
 import com.student.studentmanagesystembackend.entity.Student;
 import com.student.studentmanagesystembackend.mapper.StudentMapper;
@@ -24,12 +25,16 @@ public class StudentController {
         return Result.success(list);
     }
 
+    //新增学生：只有拥有 student:add 权限的人才能调
+    @AuthCheck("student:add")
     @PostMapping("/students")
     public Result<String> add(@RequestBody Student student){
         studentService.addStudent(student);
         return Result.success("添加成功");
     }
 
+    //删除学生：只有拥有 student:delete 权限的人才能调
+    @AuthCheck("student:delete")
     @DeleteMapping("/students/{id}")
     public Result<String> delete(@PathVariable Long id){
         studentService.deleteStudent(id);

@@ -30,4 +30,11 @@ public interface UserMapper {
 
     @Delete("delete from users where user_id = #{userId}")
     void deleteById(Long userId);
+
+    // 三表关联查询：用户 -> 角色 -> 权限
+    @Select("SELECT p.permission_code from users u " +
+            "left join sys_role_permission rp on u.role = rp.role_id " +
+            "left join sys_permission p on rp.permission_id = p.id " +
+            "where u.user_id = #{userId}")
+    List<String> findPermissionsByUserId(Long userId);
 }
