@@ -18,6 +18,11 @@ spring:
       host: localhost
       port: 6379
 
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true

@@ -37,34 +37,9 @@ public class MinioUtils {
                 .build();
     }
 
-    //上传文件
-    public String upload(MultipartFile file){
+    public String getPresignedUrl(String objectName){
         try{
-
-            // 1. 生成唯一文件名 (uuid + 后缀)
-            String originalFilename = file.getOriginalFilename();
-
-            // 文件名校验，避免 NullPointerException
-            if (originalFilename == null || originalFilename.isEmpty()) {
-                throw new RuntimeException("文件上传失败：文件名为空。");
-            }
-
-            String suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String objectName = UUID.randomUUID() + suffix;
-
-            // 2. 上传到 MinIO
-            InputStream inputStream = file.getInputStream();
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(objectName)
-                            .stream(inputStream, file.getSize(), -1)
-                            .contentType(file.getContentType())
-                            .build()
-            );
-
-            // 生成预签名 URL
-            String presignedUrl = minioClient.getPresignedObjectUrl(
+            return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET) // 指定客户端将使用 GET 方法访问
                             .bucket(bucketName)
@@ -72,9 +47,40 @@ public class MinioUtils {
                             .expiry(PRESIGNED_URL_EXPIRY_DAYS, TimeUnit.DAYS) // 设置有效期
                             .build()
             );
+        }catch (Exception e){
+            e.printStackTrace();
+            throw  new RuntimeException("MinIO获取预签名URL失败：" + e.getMessage());
+        }
+    }
 
-            // 返回有时效性的访问 URL
-            return presignedUrl;
+    //上传文件
+    public String upload(MultipartFile file){
+
+        try {
+            String originalFilename = file.getOriginalFilename();
+            String suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String objectName = UUID.randomUUID().toString() + suffix;
+
+            // 【新增】手动判断并纠正 Content-Type
+            String contentType = file.getContentType();
+            if (suffix.equalsIgnoreCase(".pdf")) {
+                contentType = "application/pdf";
+            } else if (suffix.equalsIgnoreCase(".mp4")) {
+                contentType = "video/mp4";
+            }
+
+            InputStream inputStream = file.getInputStream();
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .stream(inputStream, file.getSize(), -1)
+                            .contentType(contentType) // 【使用修正后的类型】
+                            .build()
+            );
+
+            return endpoint + "/" + bucketName + "/" + objectName;
+
         }catch (Exception e){
             e.printStackTrace();
             throw new RuntimeException("MinIO上传失败：" + e.getMessage());

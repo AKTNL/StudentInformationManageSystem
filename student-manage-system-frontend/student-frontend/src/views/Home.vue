@@ -1,9 +1,10 @@
 <script setup>
 import { useRouter } from 'vue-router';
-import { User } from '@element-plus/icons-vue'
+import { User, VideoPlay } from '@element-plus/icons-vue'
 import { ref } from 'vue' // 引入 ref 
 import StudentList from './admin/StudentList.vue';
 import MyProfile from './student/MyProfile.vue';
+import CourseList from './admin/CourseList.vue';
 
 const router = useRouter()
 
@@ -11,10 +12,18 @@ const router = useRouter()
 const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
 const isAdmin = ref(userInfo.role === 1) // 是否是管理员
 
+const currentComponent = ref('StudentList') // 默认显示学生列表/学生管理
+
 const logout = () =>{
     //退出逻辑：回到登录页
     localStorage.removeItem('user_info') // 清除缓存
     router.push('/login')
+}
+
+const componentsMap = {
+    StudentList,
+    CourseList,
+    MyProfile
 }
 </script>
 
@@ -33,16 +42,24 @@ const logout = () =>{
             <el-container>
                 <el-aside width="200px" class="aside">
                     <el-menu default-active="1" class="el-menu-vertical-demo">
-                        <el-menu-item index="1">
+                        <el-menu-item index="1" @click="currentComponent = 'StudentList'">
                             <el-icon><User/></el-icon>
                             <span>{{ isAdmin ? '学生管理' : '我的档案' }}</span>
+                        </el-menu-item>
+                        <!-- 新增课程管理 -->
+                        <el-menu-item index="2" v-if="isAdmin" @click="currentComponent = 'CourseList'">
+                            <el-icon><VideoPlay /></el-icon>
+                            <span>课程管理</span>
                         </el-menu-item>
                     </el-menu>
                 </el-aside>
 
                 <el-main class="main">
-                    <StudentList v-if="isAdmin" />
-                    <MyProfile v-else />
+                    <!-- 如果是学生，只显示 MyProfile -->
+                    <MyProfile v-if="!isAdmin" />
+                    
+                    <!-- 如果是管理员，动态切换 -->
+                    <component v-else :is="componentsMap[currentComponent]" />
                 </el-main>
             </el-container>
         </el-container>
