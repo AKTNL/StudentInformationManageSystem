@@ -16,4 +16,8 @@ public class Course {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createTime;
+
+    private Integer weekDay;
+    private Integer section;
+    private String location;
 }

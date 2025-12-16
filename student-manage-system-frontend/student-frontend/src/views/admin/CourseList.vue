@@ -17,7 +17,10 @@ const form = reactive({
     description: '',
     coverImg: '',
     resourceUrl: '',
-    resourceType: 'video'
+    resourceType: 'video',
+    weekDay: 1,
+    section: 1,
+    location: ''
 })
 
 const loadData = () => {
@@ -33,6 +36,9 @@ const openDialog = () => {
     form.coverImg = '';
     form.resourceUrl = '';
     form.resourceType = 'video';
+    form.weekDay = 1;
+    form.section = 1;
+    form.location = '';
     dialogVisible.value = true
 }
 
@@ -139,6 +145,30 @@ const handlePreview = (row) => {
                     <el-input v-model="form.description" type="textarea" placeholder="简要描述"/>
                 </el-form-item>
 
+                <el-form-item label="上课时间">
+                    <div class="time-select-percent-group">
+                        <el-select v-model="form.weekDay" placeholder="周几" style="width: 35%;">
+                            <el-option label="周一" :value="1"/>
+                            <el-option label="周二" :value="2"/>
+                            <el-option label="周三" :value="3"/>
+                            <el-option label="周四" :value="4"/>
+                            <el-option label="周五" :value="5"/>
+                            </el-select>
+                       
+                     
+                        <el-select v-model="form.section" placeholder="第几节">
+                            <el-option label="第一节（08：20-09：55）" :value="1" />
+                            <el-option label="第二节（10：10-11：45）" :value="2" />
+                            <el-option label="第三节（13：20-14：55）" :value="3" />
+                            <el-option label="第四节（15：10-16：45）" :value="4" />
+                        </el-select>
+                    </div>
+                </el-form-item>
+
+                <el-form-item label="上课教室">
+                    <el-input v-model="form.location" placeholder="例如：教学楼 101"/>
+                </el-form-item>
+
                 <!-- 上传封面 -->
                 <el-form-item label="封面图">
                     <el-upload class="avatar-uploader" :action="uploadUrl" :show-file-list="false" :on-success="handleCoverSuccess">
@@ -214,5 +244,14 @@ const handlePreview = (row) => {
     width: 100px;
     height: 100px;
     display: block;
+}
+.time-select-percent-group > .el-select {
+    /* 确保下拉框并排显示，并处理它们之间的间距 */
+    display: inline-block;
+    margin-right: 150px; /* 添加间距 */
+}
+
+.time-select-percent-group > .el-select:last-child {
+    margin-right: 0; /* 最后一个元素不需要右边距 */
 }
 </style>

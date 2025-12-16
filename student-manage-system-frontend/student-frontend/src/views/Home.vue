@@ -1,11 +1,13 @@
 <script setup>
 import { useRouter } from 'vue-router';
-import { User, VideoPlay, Collection } from '@element-plus/icons-vue'
-import { ref } from 'vue' // 引入 ref 
+import { User, VideoPlay, Collection, Calendar } from '@element-plus/icons-vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue' // 引入 ref 
+import { ElMessage, ElNotification } from 'element-plus';
 import StudentList from './admin/StudentList.vue';
 import MyProfile from './student/MyProfile.vue';
 import CourseList from './admin/CourseList.vue';
 import CourseSelect from './student/CourseSelect.vue';
+import CourseSchedule from './student/CourseSchedule.vue';
 
 const router = useRouter()
 
@@ -26,8 +28,64 @@ const componentsMap = {
     StudentList,
     CourseList,
     MyProfile,
-    CourseSelect
+    CourseSelect,
+    CourseSchedule
 }
+
+let socket = null
+
+const initWebSocket = () => {
+    if (typeof (WebSocket) === "undefined") {
+        console.error("您的浏览器不支持WebSocket")
+        return
+    }
+
+    // WebSocket 地址 (注意是 ws:// 开头)
+    const wsUrl = `ws://localhost:8081/ws/${userInfo.userId}`
+
+    socket = new WebSocket(wsUrl)
+
+    socket.onopen = () => {
+        console.log("WebSocket连接已建立")
+    }
+
+    socket.onmessage = (msg) => {
+        console.log("收到消息：", msg.data)
+        //弹出通知
+        ElNotification({
+            title: '系统通知',
+            message: msg.data,
+            type: 'success',
+            duration: 5000 // 5秒后自动关闭
+        })
+    }
+
+    socket.onclose = () => {
+        console.log("WebSocket连接已关闭")
+    }
+
+    socket.onerror = () => {
+        console.log("WebSocket发生错误")
+    }
+}
+
+onMounted(() => {
+    if (!userInfo.userId) {
+        ElMessage.error('未登录')
+        router.push('/login')
+        return
+    }
+
+    // 【启动 WebSocket】
+    initWebSocket()
+})
+
+// 组件销毁时断开连接
+onBeforeUnmount(() => {
+    if(socket) {
+        socket.close()
+    }
+})
 </script>
 
 <template>
@@ -66,6 +124,10 @@ const componentsMap = {
                             <el-menu-item index="2" @click="currentComponent = 'CourseSelect'">
                                 <el-icon><Collection/></el-icon>
                                 <span>选课中心</span>
+                            </el-menu-item>
+                            <el-menu-item index="3" @click="currentComponent = 'CourseSchedule'">
+                                <el-icon><Calendar/></el-icon>
+                                <span>我的课表</span>
                             </el-menu-item>
                         </template>
                     </el-menu>
