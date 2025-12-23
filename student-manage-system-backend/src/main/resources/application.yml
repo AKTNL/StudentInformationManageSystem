@@ -23,6 +23,9 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
 
+  elasticsearch:
+    uris: http://localhost:9200
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true

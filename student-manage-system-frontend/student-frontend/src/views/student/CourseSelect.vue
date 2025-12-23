@@ -3,7 +3,9 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getCourseListAPI } from '../../api/course';
 import { selectCourseAPI, dropCourseAPI, getMyCoursesAPI } from '../../api/selection'
+import request from '../../utils/request';
 
+const searchKeyword = ref('')
 const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
 const allCourses = ref([])
 const myCourses = ref([])
@@ -50,6 +52,22 @@ const handleDrop = (course) => {
             })
         })
 }
+
+//搜索逻辑
+const handleSearch = () => {
+    if (!searchKeyword.value) {
+        loadData()
+        return
+    }
+
+    //调用搜索接口
+    request.get('/courses/search', { params: { keyword: searchKeyword.value } })
+        .then(res => {
+            if(res.data.code === 200) {
+                allCourses.value = res.data.data
+            }
+        })
+}
 </script>
 
 <template>
@@ -78,6 +96,16 @@ const handleDrop = (course) => {
             <template #header>
                 <div class="card-header">
                     <span>📚 选课中心 (所有课程)</span>
+                    <div style="display: flex; gap: 10px;">
+                        <el-input 
+                            v-model="searchKeyword" 
+                            placeholder="搜索课程..." 
+                            style="width: 200px;" 
+                            clearable 
+                            @clear="loadData"
+                        />
+                        <el-button type="primary" @click="handleSearch">搜索</el-button>
+                    </div>
                 </div>
             </template>
 
