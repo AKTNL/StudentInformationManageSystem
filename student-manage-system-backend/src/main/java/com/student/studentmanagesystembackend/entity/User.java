@@ -17,4 +17,5 @@ public class User {
     private Integer loginFailCount;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Long managedClassId;
 }

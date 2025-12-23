@@ -37,4 +37,7 @@ public interface UserMapper {
             "left join sys_permission p on rp.permission_id = p.id " +
             "where u.user_id = #{userId}")
     List<String> findPermissionsByUserId(Long userId);
+
+    @Select("select * from users where user_id = #{id}")
+    User selectById(Long id);
 }

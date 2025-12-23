@@ -1,6 +1,8 @@
 package com.student.studentmanagesystembackend.aspect;
 
 import com.student.studentmanagesystembackend.annotation.AuthCheck;
+import com.student.studentmanagesystembackend.context.UserContext;
+import com.student.studentmanagesystembackend.entity.User;
 import com.student.studentmanagesystembackend.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -37,6 +39,11 @@ public class AuthAspect {
         }
         Long userId = Long.parseLong(userIdStr);
 
+        User user = userMapper.selectById(userId);
+
+        //放入上下文
+        UserContext.set(user);
+
         // 3. 查用户 -> 查角色 -> 查权限
         // 这里为了性能，把用户的权限列表存到 Redis 里，不要每次都查库
         List<String> userPermissions = userMapper.findPermissionsByUserId(userId);
@@ -46,7 +53,14 @@ public class AuthAspect {
             throw new RuntimeException("无权访问：权限不足" + mustPermission);
         }
 
-        // 5. 权限验证通过，执行原方法
-        return joinPoint.proceed();
+        try{
+            // 5. 权限验证通过，执行原方法
+            return joinPoint.proceed();
+        }finally {
+            //请求结束，清理上下文，防止内存泄漏
+            UserContext.remove();
+        }
+
+
     }
 }
