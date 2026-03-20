@@ -52,24 +52,19 @@ public class DataPermissionInterceptor implements Interceptor {
             //4.判断是否是查students表
             String tableName = plainSelect.getFromItem().toString();
             if (tableName.equalsIgnoreCase("students")){
-                // 5. 构造新的 WHERE 条件: class_id = user.getManagedClassId()
                 EqualsTo equalsTo = new EqualsTo();
                 equalsTo.setLeftExpression(new Column("class_id"));
                 equalsTo.setRightExpression(new LongValue(user.getManagedClassId()));
 
-                //6.将新条件和原有条件合并
                 Expression originalWhere = plainSelect.getWhere();
-                if (originalWhere != null){
+                if (originalWhere == null){
                     plainSelect.setWhere(equalsTo);
                 }else{
-                    //如果原来有条件，用and连接
                     AndExpression andExpression = new AndExpression(originalWhere, equalsTo);
                     plainSelect.setWhere(andExpression);
                 }
 
-                //7.把改好的SQL写回去
                 String newSql = select.toString();
-                // 通过反射修改 boundSql 的 sql 属性
                 java.lang.reflect.Field field = boundSql.getClass().getDeclaredField("sql");
                 field.setAccessible(true);
                 field.set(boundSql, newSql);

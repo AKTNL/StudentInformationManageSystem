@@ -1,15 +1,25 @@
 package com.student.studentmanagesystembackend.service.impl;
 
+import com.student.studentmanagesystembackend.common.BusinessException;
+import com.student.studentmanagesystembackend.common.ErrorCode;
 import com.student.studentmanagesystembackend.common.SecureUtils;
+import com.student.studentmanagesystembackend.constant.StudentConstants;
+import com.student.studentmanagesystembackend.constant.UserConstants;
 import com.student.studentmanagesystembackend.entity.Student;
 import com.student.studentmanagesystembackend.entity.User;
 import com.student.studentmanagesystembackend.mapper.StudentMapper;
 import com.student.studentmanagesystembackend.mapper.UserMapper;
 import com.student.studentmanagesystembackend.service.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
 
@@ -19,92 +29,137 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private StudentMapper studentMapper;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
     @Override
-    @Transactional // 【关键】开启事务：要么都成功，要么都失败
+    @Transactional
     public void register(User user, String studentNo, String realName) {
-        //1.校验用户名是否已存在
         User existUser = userMapper.findByUsername(user.getUsername());
         if (existUser != null) {
-            throw new RuntimeException("用户名已存在");
+            log.warn("注册失败，用户名已存在: {}", user.getUsername());
+            throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS);
         }
 
-        //2.生成盐值
         String salt = SecureUtils.getSalt();
-
-        //3.密码加密（明文 + 盐 -> 密文）
         String encodedPwd = SecureUtils.md5(user.getPassword(), salt);
 
-        //4. 设置回对象
         user.setSalt(salt);
         user.setPassword(encodedPwd);
 
-        //默认角色为学生
-        if(user.getRole() == null) user.setRole(2);
-        //默认昵称
-        if(user.getNickname() == null) user.setNickname(realName); // 昵称默认用真实姓名
+        if (user.getRole() == null) {
+            user.setRole(UserConstants.ROLE_STUDENT);
+        }
+        if (user.getNickname() == null) {
+            user.setNickname(realName);
+        }
 
-        //5.存入数据库
         userMapper.insert(user);
+        log.info("用户注册成功: userId={}, username={}", user.getUserId(), user.getUsername());
 
-        //6.关联学生
         Student student = new Student();
         student.setUserId(user.getUserId());
         student.setStudentNo(studentNo);
         student.setRealName(realName);
-        student.setGender(1); // 默认男
-        student.setPhone(""); // 暂时留空
+        student.setGender(StudentConstants.GENDER_MALE);
+        student.setPhone(StudentConstants.DEFAULT_PHONE);
 
         studentMapper.insert(student);
+        log.info("学生信息创建成功: studentNo={}", studentNo);
     }
 
     @Override
     public User login(String username, String password) {
-        //1.根据用户名查询用户
         User user = userMapper.findByUsername(username);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            log.warn("登录失败，用户不存在: {}", username);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
-        //2.检查锁定状态
-        if (user.getStatus() != null && user.getStatus() == 0){
-            throw new RuntimeException("账号已被锁定，请联系管理员");
+        if (user.getStatus() != null && user.getStatus() == UserConstants.STATUS_LOCKED) {
+            log.warn("登录失败，账号已被锁定: {}", username);
+            throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
         }
 
-        //3.对比密码
-        //数据库里的盐
         String salt = user.getSalt();
-        //用同样的算法加密用户输入的密码
         String inputPwdEncoded = SecureUtils.md5(password, salt);
 
-        //4.判断结果
-        if(!user.getPassword().equals(inputPwdEncoded)){
-            //密码错误逻辑
+        if (!user.getPassword().equals(inputPwdEncoded)) {
             int newFailCount = (user.getLoginFailCount() == null ? 0 : user.getLoginFailCount()) + 1;
-            int newStatus = 1; //默认正常
+            int newStatus = UserConstants.STATUS_NORMAL;
 
-            //如果错误次数 >= 5,锁定账号
-            if(newFailCount >= 5){
-                newStatus = 0; //锁定
+            if (newFailCount >= UserConstants.MAX_LOGIN_FAIL_COUNT) {
+                newStatus = UserConstants.STATUS_LOCKED;
             }
 
-            //更新数据库
             userMapper.updateLoginFail(user.getUserId(), newFailCount, newStatus);
 
-            String msg = "密码错误，您还有" + (5 - newFailCount) + "次机会";
-            if(newStatus == 0){
+            String msg = "密码错误，您还有" + (UserConstants.MAX_LOGIN_FAIL_COUNT - newFailCount) + "次机会";
+            if (newStatus == UserConstants.STATUS_LOCKED) {
+                log.warn("账号已锁定: {}", username);
                 msg = "密码错误，账号已锁定，请联系管理员";
             }
-            throw new RuntimeException(msg);
+            throw new BusinessException(ErrorCode.PASSWORD_ERROR, msg);
         }
 
-        //密码正确的逻辑
-        //重置错误次数
         userMapper.resetLoginFail(user.getUserId());
+        log.info("用户登录成功: userId={}, username={}", user.getUserId(), username);
 
-        //敏感信息不返回给前端
         user.setPassword(null);
         user.setSalt(null);
 
         return user;
+    }
+
+    @Override
+    public String sendResetCode(String username) {
+        User user = userMapper.findByUsername(username);
+        if (user == null) {
+            log.warn("重置密码失败，用户不存在: {}", username);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "用户不存在");
+        }
+
+        String code = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        redisTemplate.opsForValue().set(
+            "reset_code:" + username,
+            code,
+            5,
+            TimeUnit.MINUTES
+        );
+
+        log.info("生成密码重置验证码: username={}, code={}", username, code);
+        return code;
+    }
+
+    @Override
+    public void resetPassword(String username, String code, String newPassword) {
+        User user = userMapper.findByUsername(username);
+        if (user == null) {
+            log.warn("重置密码失败，用户不存在: {}", username);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "用户不存在");
+        }
+
+        String key = "reset_code:" + username;
+        String realCode = redisTemplate.opsForValue().get(key);
+
+        if (realCode == null) {
+            log.warn("重置密码失败，验证码已过期: username={}", username);
+            throw new BusinessException(ErrorCode.CAPTCHA_EXPIRED, "验证码已过期，请重新获取");
+        }
+
+        if (!realCode.equals(code)) {
+            log.warn("重置密码失败，验证码错误: username={}, input={}, real={}", username, code, realCode);
+            throw new BusinessException(ErrorCode.CAPTCHA_ERROR, "验证码错误");
+        }
+
+        redisTemplate.delete(key);
+
+        String salt = SecureUtils.getSalt();
+        String encodedPwd = SecureUtils.md5(newPassword, salt);
+
+        userMapper.updatePassword(user.getUserId(), encodedPwd, salt);
+
+        log.info("密码重置成功: userId={}, username={}", user.getUserId(), username);
     }
 }

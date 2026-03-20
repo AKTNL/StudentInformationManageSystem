@@ -12,13 +12,11 @@ const myCourses = ref([])
 
 //加载数据
 const loadData = async () => {
-    //1.获取所有课程
-    const resl = await getCourseListAPI()
-    if (resl.data.code === 200) allCourses.value = resl.data.data
+    const res1 = await getCourseListAPI()
+    allCourses.value = res1.data
 
-    //2.获取我已选的课程
     const res2 = await getMyCoursesAPI(userInfo.userId)
-    if(res2.data.code === 200) myCourses.value = res2.data.data
+    myCourses.value = res2.data
 }
 
 onMounted(() => loadData())
@@ -31,12 +29,11 @@ const isSelected = (courseId) => {
 //选课
 const handleSelect = (course) => {
     selectCourseAPI(userInfo.userId, course.courseId).then(res => {
-        if (res.data.code === 200) {
-            ElMessage.success('选课成功')
-            loadData() // 刷新数据
-        } else {
-            ElMessage.error(res.data.msg)
-        }
+        ElMessage.success('选课成功')
+        loadData()
+    }).catch(err => {
+        console.error(err)
+        ElMessage.error('选课失败')
     })
 }
 
@@ -45,10 +42,11 @@ const handleDrop = (course) => {
     ElMessageBox.confirm(`确定要退选《${course.courseName}》吗？`, '警告', { type: 'warning' })
         .then(() => {
             dropCourseAPI(userInfo.userId, course.courseId).then(res => {
-                if (res.data.code === 200) {
-                    ElMessage.success('退课成功')
-                    loadData()
-                }
+                ElMessage.success('退课成功')
+                loadData()
+            }).catch(err => {
+                console.error(err)
+                ElMessage.error('退课失败')
             })
         })
 }
@@ -60,12 +58,13 @@ const handleSearch = () => {
         return
     }
 
-    //调用搜索接口
     request.get('/courses/search', { params: { keyword: searchKeyword.value } })
         .then(res => {
-            if(res.data.code === 200) {
-                allCourses.value = res.data.data
-            }
+            allCourses.value = res.data
+        })
+        .catch(err => {
+            console.error(err)
+            ElMessage.error('搜索失败')
         })
 }
 </script>

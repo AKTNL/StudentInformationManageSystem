@@ -1,5 +1,6 @@
 package com.student.studentmanagesystembackend.controller;
 
+import com.student.studentmanagesystembackend.annotation.AuthCheck;
 import com.student.studentmanagesystembackend.common.Result;
 import com.student.studentmanagesystembackend.entity.SchoolClass;
 import com.student.studentmanagesystembackend.mapper.ClassMapper;
@@ -15,6 +16,7 @@ public class ClassController {
     private ClassMapper classMapper;
 
     @GetMapping("/classes")
+    @AuthCheck(requireLogin = true)
     public Result<List<SchoolClass>> list(){
         return Result.success(classMapper.findAll());
     }

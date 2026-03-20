@@ -1,10 +1,14 @@
 package com.student.studentmanagesystembackend.aspect;
 
 import com.student.studentmanagesystembackend.annotation.AuthCheck;
+import com.student.studentmanagesystembackend.common.BusinessException;
+import com.student.studentmanagesystembackend.common.ErrorCode;
 import com.student.studentmanagesystembackend.context.UserContext;
 import com.student.studentmanagesystembackend.entity.User;
 import com.student.studentmanagesystembackend.mapper.UserMapper;
+import com.student.studentmanagesystembackend.service.CacheService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -13,54 +17,95 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.Arrays;
 import java.util.List;
 
-@Aspect // 标记为切面
-@Component // 交给 Spring 管理
+@Slf4j
+@Aspect
+@Component
 public class AuthAspect {
     @Autowired
     private UserMapper userMapper;
 
-    @Around("@annotation(authCheck)") // 拦截所有带 @AuthCheck 注解的方法
-    public Object doIntercept(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
-        //1.获取注解里的权限码
-        String mustPermission = authCheck.value();
-        if (mustPermission == null || mustPermission.equals("")){
-            // 如果没写权限码，直接放行
-            return joinPoint.proceed();
-        }
+    @Autowired
+    private CacheService cacheService;
 
-        // 2. 获取当前请求的用户
+    @Around("@annotation(authCheck)")
+    public Object doIntercept(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
+        String mustPermission = authCheck.value();
+        int[] requiredRoles = authCheck.roles();
+        boolean requireLogin = authCheck.requireLogin();
+
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
         String userIdStr = request.getHeader("userId");
 
-        if(userIdStr == null){
-            throw new RuntimeException("无权访问：未登录");
+        if (requireLogin && userIdStr == null) {
+            log.warn("未登录访问受保护接口: {}", request.getRequestURI());
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "请先登录");
         }
+
+        if (!requireLogin && userIdStr == null) {
+            return joinPoint.proceed();
+        }
+
         Long userId = Long.parseLong(userIdStr);
+        
+        User user = (User) cacheService.getUserInfo(userId);
+        if (user == null) {
+            user = userMapper.selectById(userId);
+            if (user != null) {
+                cacheService.setUserInfo(userId, user);
+            }
+        }
 
-        User user = userMapper.selectById(userId);
+        if (user == null) {
+            log.warn("用户不存在: userId={}", userId);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "用户不存在");
+        }
 
-        //放入上下文
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            log.warn("账号已被锁定: userId={}", userId);
+            throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
+        }
+
         UserContext.set(user);
 
-        // 3. 查用户 -> 查角色 -> 查权限
-        // 这里为了性能，把用户的权限列表存到 Redis 里，不要每次都查库
-        List<String> userPermissions = userMapper.findPermissionsByUserId(userId);
-
-        // 4. 校验权限
-        if (userPermissions == null || !userPermissions.contains(mustPermission)){
-            throw new RuntimeException("无权访问：权限不足" + mustPermission);
+        if (requiredRoles.length > 0) {
+            int userRole = user.getRole() != null ? user.getRole() : 0;
+            boolean hasRole = false;
+            for (int role : requiredRoles) {
+                if (role == userRole) {
+                    hasRole = true;
+                    break;
+                }
+            }
+            if (!hasRole) {
+                log.warn("用户角色不足: userId={}, userRole={}, requiredRoles={}", 
+                        userId, user.getRole(), Arrays.toString(requiredRoles));
+                throw new BusinessException(ErrorCode.FORBIDDEN, "权限不足");
+            }
         }
 
-        try{
-            // 5. 权限验证通过，执行原方法
+        if (mustPermission != null && !mustPermission.isEmpty()) {
+            @SuppressWarnings("unchecked")
+            List<String> userPermissions = (List<String>) cacheService.getUserPermissions(userId);
+            if (userPermissions == null) {
+                userPermissions = userMapper.findPermissionsByUserId(userId);
+                if (userPermissions != null) {
+                    cacheService.setUserPermissions(userId, userPermissions);
+                }
+            }
+            
+            if (userPermissions == null || !userPermissions.contains(mustPermission)) {
+                log.warn("用户权限不足: userId={}, requiredPermission={}", userId, mustPermission);
+                throw new BusinessException(ErrorCode.FORBIDDEN, "权限不足: " + mustPermission);
+            }
+        }
+
+        try {
             return joinPoint.proceed();
-        }finally {
-            //请求结束，清理上下文，防止内存泄漏
+        } finally {
             UserContext.remove();
         }
-
-
     }
 }

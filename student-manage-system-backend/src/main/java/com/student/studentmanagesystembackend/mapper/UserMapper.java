@@ -40,4 +40,7 @@ public interface UserMapper {
 
     @Select("select * from users where user_id = #{id}")
     User selectById(Long id);
+
+    @org.apache.ibatis.annotations.Update("UPDATE users SET password = #{password}, salt = #{salt}, login_fail_count = 0, update_time = NOW() WHERE user_id = #{userId}")
+    void updatePassword(Long userId, String password, String salt);
 }

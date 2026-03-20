@@ -25,7 +25,7 @@ const form = reactive({
 
 const loadData = () => {
     getCourseListAPI()
-        .then(res => tableData.value = res.data.data)
+        .then(res => tableData.value = res.data)
 }
 
 onMounted(() => loadData())
@@ -67,11 +67,12 @@ const handleResourceSuccess = (res, file) => {
 const saveCourse = () => {
     if (!form.courseName || !form.resourceUrl) return ElMessage.warning('请填写完整')
     addCourseAPI(form).then(res => {
-        if (res.data.code === 200) {
-            ElMessage.success('发布成功')
-            dialogVisible.value = false
-            loadData()
-        }
+        ElMessage.success('发布成功')
+        dialogVisible.value = false
+        loadData()
+    }).catch(err => {
+        console.error(err)
+        ElMessage.error('发布失败')
     })
 }
 

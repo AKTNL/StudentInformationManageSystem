@@ -20,32 +20,25 @@ const initSchedule = () => {
 }
 
 const loadData = async () => {
-    //1.获取我选的所有课
     const res = await getMyCoursesAPI(userInfo.userId)
-    if (res.data.code === 200) {
-        const myCourses = res.data.data
+    const myCourses = res.data
 
-        //2.转换数据格式
-        const tempSchedule = initSchedule()
+    const tempSchedule = initSchedule()
 
-        //3.遍历课程，填入表格
-        myCourses.forEach(course => {
-            // weekDay: 1-5 (对应 mon-fri), section: 1-4 (对应数组索引 0-3)
-            const rowIndex = course.section - 1
-            if (rowIndex >= 0 && rowIndex < 4) {
-                const row = tempSchedule[rowIndex]
-                // 根据 weekDay 决定填入哪一列
-                switch (course.weekDay) {
-                    case 1: row.mon = course; break;
-                    case 2: row.tue = course; break;
-                    case 3: row.wed = course; break;
-                    case 4: row.thu = course; break;
-                    case 5: row.fri = course; break;
-                }
+    myCourses.forEach(course => {
+        const rowIndex = course.section - 1
+        if (rowIndex >= 0 && rowIndex < 4) {
+            const row = tempSchedule[rowIndex]
+            switch (course.weekDay) {
+                case 1: row.mon = course; break;
+                case 2: row.tue = course; break;
+                case 3: row.wed = course; break;
+                case 4: row.thu = course; break;
+                case 5: row.fri = course; break;
             }
-        })
-        scheduleData.value = tempSchedule
-    }
+        }
+    })
+    scheduleData.value = tempSchedule
 }
 
 onMounted(() => loadData())
